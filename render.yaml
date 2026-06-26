@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: subtitle-studio
+    env: docker
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PUBLIC_DEPLOYMENT
+        value: "1"
+      - key: APP_USERNAME
+        value: friend
+      - key: APP_PASSWORD
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
