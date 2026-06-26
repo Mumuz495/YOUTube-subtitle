@@ -15,8 +15,13 @@ class AppHttpTests(unittest.TestCase):
         server = ThreadingHTTPServer(("127.0.0.1", 0), TranscriptAppHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        self.addCleanup(server.shutdown)
-        self.addCleanup(server.server_close)
+
+        def cleanup():
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+        self.addCleanup(cleanup)
         return f"http://127.0.0.1:{server.server_port}"
 
     def test_healthz_does_not_require_password(self):

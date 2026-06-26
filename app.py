@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC_DIR = ROOT / "static"
 OUTPUT_DIR = (ROOT / DEFAULT_OUTPUT_DIR).resolve()
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
+DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024
 
 
 class TranscriptAppHandler(BaseHTTPRequestHandler):
@@ -70,8 +71,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = self._read_json_body()
             url = str(payload.get("url", "")).strip()
             output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
             translate = bool(payload.get("translate", False))
@@ -87,8 +87,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _handle_study_sheet_export(self):
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = self._read_json_body()
             html = str(payload.get("html", ""))
             output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
             export_format = str(payload.get("format", "html")).strip() or "html"
@@ -99,8 +98,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _handle_vocab_request(self):
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = self._read_json_body()
             term = str(payload.get("term", "")).strip()
             context = str(payload.get("context", "")).strip()
             api_key = get_deepseek_api_key()
@@ -115,8 +113,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _handle_tts_request(self):
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = self._read_json_body()
             text = str(payload.get("text", "")).strip()
             output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
             voice_profile = str(payload.get("voice_profile", "us-female")).strip() or "us-female"
@@ -128,6 +125,14 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))
+
+    def _read_json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length > _max_request_bytes():
+            raise ValueError("请求内容过大，请缩短文本或分批处理。")
+        if length <= 0:
+            return {}
+        return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def _ensure_authorized(self) -> bool:
         password = os.environ.get("APP_PASSWORD", "").strip()
@@ -155,9 +160,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _send_file(self, path: Path):
         try:
-            resolved = path.resolve()
-            if not str(resolved).startswith(str(STATIC_DIR.resolve())):
-                raise FileNotFoundError
+            resolved = _resolve_static_path(path)
             content = resolved.read_bytes()
         except FileNotFoundError:
             self._send_json({"ok": False, "error": "File not found"}, status=404)
@@ -222,6 +225,20 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in TRUTHY_VALUES
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+def _max_request_bytes() -> int:
+    return _env_int("MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES)
+
+
 def _is_public_deployment() -> bool:
     host = os.environ.get("HOST", "127.0.0.1").strip()
     return (
@@ -246,6 +263,17 @@ def _resolve_download_path(raw_path: str) -> Path:
     resolved = (ROOT / raw_path).resolve() if not os.path.isabs(raw_path) else Path(raw_path).resolve()
     try:
         resolved.relative_to(OUTPUT_DIR)
+    except ValueError as exc:
+        raise FileNotFoundError from exc
+    if not resolved.is_file():
+        raise FileNotFoundError
+    return resolved
+
+
+def _resolve_static_path(path: Path) -> Path:
+    resolved = path.resolve()
+    try:
+        resolved.relative_to(STATIC_DIR.resolve())
     except ValueError as exc:
         raise FileNotFoundError from exc
     if not resolved.is_file():

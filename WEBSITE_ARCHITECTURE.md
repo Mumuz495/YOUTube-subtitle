@@ -111,6 +111,9 @@ V1 必须有：
 - `DEEPSEEK_API_KEY`：只存在服务器环境变量中
 - `PUBLIC_DEPLOYMENT=1`：公网模式下禁止用户自定义服务器输出目录
 - 下载目录限制：只允许下载 `output/` 下的生成文件
+- `MAX_REQUEST_BYTES`：限制单次请求大小，避免异常大请求拖垮服务
+- GitHub Actions CI：每次推送后自动跑编译和测试
+- `scripts/preflight.py`：部署前本地自检
 
 V2 再考虑：
 
@@ -165,6 +168,8 @@ PUBLIC_DEPLOYMENT=1
 - 保持单容器部署
 - 朋友用统一密码访问
 - 手动观察使用频率和 API 费用
+- 每次上线前跑 `python scripts/preflight.py`
+- GitHub Actions 通过后再部署
 
 ### 第二阶段
 
@@ -204,4 +209,3 @@ PUBLIC_DEPLOYMENT=1
 - 文件读写统一走 storage
 - HTTP 层只做请求和响应
 - 每次加安全边界都补测试
-
