@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -6,9 +7,11 @@ from unittest.mock import patch
 from transcript_tool import DEFAULT_OUTPUT_DIR
 from subtitle_studio.web_config import (
     max_request_bytes,
+    output_retention_hours,
     rate_limit_enabled,
     resolve_web_output_root,
 )
+from subtitle_studio.web_cleanup import cleanup_generated_output
 from subtitle_studio.web_limits import InMemoryRateLimiter, client_key
 from subtitle_studio.web_paths import ROOT, STATIC_DIR, resolve_download_path, resolve_static_path
 
@@ -87,6 +90,34 @@ class WebAppSecurityTests(unittest.TestCase):
     def test_client_key_prefers_forwarded_for(self):
         headers = {"X-Forwarded-For": "203.0.113.10, 10.0.0.1"}
         self.assertEqual(client_key(headers, ("127.0.0.1", 1234)), "203.0.113.10")
+
+    def test_output_retention_defaults_to_disabled_for_local_mode(self):
+        with patch.dict(os.environ, {"HOST": "127.0.0.1"}, clear=True):
+            self.assertEqual(output_retention_hours(), 0.0)
+
+    def test_output_retention_defaults_to_24_hours_for_public_mode(self):
+        with patch.dict(os.environ, {"PUBLIC_DEPLOYMENT": "1"}, clear=True):
+            self.assertEqual(output_retention_hours(), 24.0)
+
+    def test_cleanup_generated_output_removes_expired_files(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"OUTPUT_RETENTION_HOURS": "1"}, clear=True):
+            root = Path(tmp)
+            old_dir = root / "old"
+            old_dir.mkdir()
+            old_file = old_dir / "study-sheet.pdf"
+            old_file.write_text("old", encoding="utf-8")
+            fresh_file = root / "fresh.txt"
+            fresh_file.write_text("fresh", encoding="utf-8")
+            os.utime(old_file, (1000.0, 1000.0))
+            os.utime(fresh_file, (5000.0, 5000.0))
+
+            result = cleanup_generated_output(tmp, now=5000.0)
+
+            self.assertFalse(old_file.exists())
+            self.assertFalse(old_dir.exists())
+            self.assertTrue(fresh_file.exists())
+            self.assertEqual(result.removed_files, 1)
+            self.assertEqual(result.removed_dirs, 1)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from subtitle_studio.web_cleanup import cleanup_generated_output
 from subtitle_studio.web_limits import RATE_LIMITER, RATE_LIMIT_STATUS, client_key
 from subtitle_studio.web_config import max_request_bytes, resolve_web_output_root
 from subtitle_studio.web_paths import ROOT, STATIC_DIR, resolve_download_path, resolve_static_path
@@ -53,6 +54,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
             return
         if not self._ensure_rate_limit():
             return
+        _cleanup_output_best_effort()
 
         parsed_path = urlparse(self.path).path
         if parsed_path == "/api/vocab":
@@ -235,12 +237,20 @@ def _coerce_limit(value) -> int | None:
 
 
 def main():
+    _cleanup_output_best_effort()
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8765"))
     server = ThreadingHTTPServer((host, port), TranscriptAppHandler)
     print(f"Subtitle Studio running at http://{host}:{port}")
     print("Press Ctrl+C to stop.")
     server.serve_forever()
+
+
+def _cleanup_output_best_effort() -> None:
+    try:
+        cleanup_generated_output(DEFAULT_OUTPUT_DIR)
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":

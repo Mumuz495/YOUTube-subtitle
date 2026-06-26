@@ -15,6 +15,8 @@ services:
         value: "60"
       - key: RATE_LIMIT_WINDOW_SECONDS
         value: "600"
+      - key: OUTPUT_RETENTION_HOURS
+        value: "24"
       - key: APP_USERNAME
         value: friend
       - key: APP_PASSWORD

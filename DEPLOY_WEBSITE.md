@@ -26,6 +26,7 @@ APP_PASSWORD=设置一个强密码
 HOST=0.0.0.0
 PUBLIC_DEPLOYMENT=1
 RATE_LIMIT_ENABLED=1
+OUTPUT_RETENTION_HOURS=24
 PORT=8765
 ```
 
@@ -74,6 +75,7 @@ APP_PASSWORD=设置一个强密码
 HOST=0.0.0.0
 PUBLIC_DEPLOYMENT=1
 RATE_LIMIT_ENABLED=1
+OUTPUT_RETENTION_HOURS=24
 ```
 
 8. 部署成功后，把平台提供的网址分享给朋友。
@@ -158,5 +160,6 @@ Render、Fly.io、Railway 都支持从仓库里的 Dockerfile 构建运行容器
 - 公网部署时保持 `PUBLIC_DEPLOYMENT=1`，后端会忽略用户传入的自定义服务器输出目录。
 - 下载接口只允许下载 `output/` 下的生成文件，避免泄露 `.env` 或项目源码。
 - 默认限流配置是每个客户端 10 分钟最多 60 次 POST 请求，可以用 `RATE_LIMIT_MAX_REQUESTS` 和 `RATE_LIMIT_WINDOW_SECONDS` 调整。
+- 公网部署默认保留生成文件 24 小时，可以用 `OUTPUT_RETENTION_HOURS` 调整；朋友下载完 PDF/DOCX 后应本地保存。
 - 视频、文章和字幕内容涉及版权，请只用于个人学习、跟读训练和研究。
 - `output/` 在容器里通常是临时文件，平台重启后可能丢失。朋友下载完 DOCX/PDF 后，本地保存即可。

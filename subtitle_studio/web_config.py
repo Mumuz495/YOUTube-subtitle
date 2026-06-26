@@ -9,6 +9,7 @@ TRUTHY_VALUES = {"1", "true", "yes", "on"}
 DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024
 DEFAULT_RATE_LIMIT_MAX_REQUESTS = 60
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 10 * 60
+DEFAULT_PUBLIC_OUTPUT_RETENTION_HOURS = 24
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -24,6 +25,16 @@ def env_int(name: str, default: int) -> int:
         return default
     try:
         return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+def env_float(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(0.0, float(raw))
     except ValueError:
         return default
 
@@ -62,3 +73,8 @@ def rate_limit_max_requests() -> int:
 
 def rate_limit_window_seconds() -> int:
     return env_int("RATE_LIMIT_WINDOW_SECONDS", DEFAULT_RATE_LIMIT_WINDOW_SECONDS)
+
+
+def output_retention_hours() -> float:
+    default = DEFAULT_PUBLIC_OUTPUT_RETENTION_HOURS if is_public_deployment() else 0.0
+    return env_float("OUTPUT_RETENTION_HOURS", default)

@@ -37,6 +37,7 @@
 
 - `app.py`：HTTP 服务、路由、认证、下载保护
 - `subtitle_studio/web_config.py`：公网/本地模式、请求大小、输出目录策略
+- `subtitle_studio/web_cleanup.py`：生成文件保留期清理
 - `subtitle_studio/web_limits.py`：共享密码部署下的轻量 API 限流
 - `subtitle_studio/web_paths.py`：静态文件和下载文件的路径安全
 - `transcript_tool.py`：字幕抓取、文章抓取、翻译、生词解释、TTS、导出
@@ -116,6 +117,7 @@ V1 必须有：
 - 下载目录限制：只允许下载 `output/` 下的生成文件
 - `MAX_REQUEST_BYTES`：限制单次请求大小，避免异常大请求拖垮服务
 - `RATE_LIMIT_ENABLED`：公网模式默认开启，对 POST API 做轻量限流
+- `OUTPUT_RETENTION_HOURS`：公网模式默认保留生成文件 24 小时，避免容器磁盘无限增长
 - GitHub Actions CI：每次推送后自动跑编译和测试
 - `scripts/preflight.py`：部署前本地自检
 
