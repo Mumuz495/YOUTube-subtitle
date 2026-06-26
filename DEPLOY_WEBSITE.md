@@ -38,6 +38,14 @@ PORT=8765
 
 可以使用 Cloudflare Tunnel、ngrok、Tailscale Funnel 等工具，把本机 `http://127.0.0.1:8765/` 临时映射成公网网址。
 
+项目已经提供 Windows 快速脚本：
+
+```powershell
+.\scripts\start_share_tunnel.ps1
+```
+
+详细说明见 `QUICK_SHARE.md`。
+
 优点：
 
 - 最快

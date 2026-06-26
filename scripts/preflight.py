@@ -33,6 +33,8 @@ REQUIRED_FILES = [
     "DEPLOY_WEBSITE.md",
     "WEBSITE_ARCHITECTURE.md",
     "scripts/smoke_deployment.py",
+    "scripts/start_share_tunnel.ps1",
+    "QUICK_SHARE.md",
 ]
 SCAN_EXTENSIONS = {".py", ".js", ".css", ".html", ".md", ".txt", ".yaml", ".yml", ".example"}
 SKIP_DIRS = {".git", ".venv", "venv", "env", "output", "__pycache__", "MediaCrawler"}
