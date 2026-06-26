@@ -82,6 +82,19 @@ APP_PASSWORD=设置一个强密码
 
 6. 部署完成后，用 Render 提供的网址访问。
 
+部署完成后可以运行一次自检：
+
+```bash
+python scripts/smoke_deployment.py https://你的服务地址 --username friend --password 你的访问密码
+```
+
+它会检查：
+
+- `/healthz` 可访问
+- 首页有密码保护
+- 正确密码能打开首页
+- `.env` 不能通过下载接口读取
+
 ## 本地测试 Docker
 
 电脑装好 Docker 后，在项目目录运行：

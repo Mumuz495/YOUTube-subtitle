@@ -31,10 +31,14 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
     server_version = "SubtitleStudio/1.0"
 
     def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/healthz":
+            self._send_json({"ok": True, "service": "subtitle-studio"})
+            return
+
         if not self._ensure_authorized():
             return
 
-        parsed = urlparse(self.path)
         if parsed.path == "/":
             self._send_file(STATIC_DIR / "index.html")
             return

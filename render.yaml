@@ -3,6 +3,7 @@ services:
     name: subtitle-studio
     env: docker
     autoDeploy: true
+    healthCheckPath: /healthz
     envVars:
       - key: HOST
         value: 0.0.0.0
