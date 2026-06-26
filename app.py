@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import base64
+import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -27,6 +29,9 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
     server_version = "SubtitleStudio/1.0"
 
     def do_GET(self):
+        if not self._ensure_authorized():
+            return
+
         parsed = urlparse(self.path)
         if parsed.path == "/":
             self._send_file(STATIC_DIR / "index.html")
@@ -40,6 +45,9 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         self._send_json({"ok": False, "error": "Not found"}, status=404)
 
     def do_POST(self):
+        if not self._ensure_authorized():
+            return
+
         parsed_path = urlparse(self.path).path
         if parsed_path == "/api/vocab":
             self._handle_vocab_request()
@@ -115,6 +123,30 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))
 
+    def _ensure_authorized(self) -> bool:
+        password = os.environ.get("APP_PASSWORD", "").strip()
+        if not password:
+            return True
+
+        username = os.environ.get("APP_USERNAME", "friend").strip() or "friend"
+        header = self.headers.get("Authorization", "")
+        prefix = "Basic "
+        if header.startswith(prefix):
+            try:
+                decoded = base64.b64decode(header[len(prefix):]).decode("utf-8")
+                supplied_username, supplied_password = decoded.split(":", 1)
+                if hmac.compare_digest(supplied_username, username) and hmac.compare_digest(supplied_password, password):
+                    return True
+            except (ValueError, UnicodeDecodeError):
+                pass
+
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="Subtitle Studio"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write("需要访问密码。".encode("utf-8"))
+        return False
+
     def _send_file(self, path: Path):
         try:
             resolved = path.resolve()
@@ -180,9 +212,10 @@ def _coerce_limit(value) -> int | None:
 
 
 def main():
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8765"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), TranscriptAppHandler)
-    print(f"Subtitle Studio running at http://127.0.0.1:{port}")
+    server = ThreadingHTTPServer((host, port), TranscriptAppHandler)
+    print(f"Subtitle Studio running at http://{host}:{port}")
     print("Press Ctrl+C to stop.")
     server.serve_forever()
 

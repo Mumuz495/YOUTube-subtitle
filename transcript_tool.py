@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -1120,15 +1121,28 @@ def _wrap_export_text(text: str, max_units: int) -> list[str]:
 
 
 def _find_browser_executable() -> str | None:
+    configured = os.environ.get("BROWSER_EXECUTABLE", "").strip()
+    if configured and Path(configured).exists():
+        return configured
+
     candidates = [
         Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
         Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
         Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe"),
         Path("C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"),
+        Path("/usr/bin/chromium"),
+        Path("/usr/bin/chromium-browser"),
+        Path("/usr/bin/google-chrome"),
+        Path("/usr/bin/google-chrome-stable"),
+        Path("/snap/bin/chromium"),
     ]
     for candidate in candidates:
         if candidate.exists():
             return str(candidate)
+    for executable in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome"):
+        found = shutil.which(executable)
+        if found:
+            return found
     return None
 
 
