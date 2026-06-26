@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subtitle Studio</title>
+    <link rel="stylesheet" href="/static/styles.css?v=9" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Subtitle Studio</h1>
+          <p>抓取视频字幕或公开文章，生成适合双语跟读的学习稿。</p>
+        </div>
+        <a class="ghost-link" href="https://www.youtube.com" target="_blank" rel="noreferrer">YouTube</a>
+      </header>
+
+      <section class="workspace">
+        <form id="fetch-form" class="control-panel">
+          <label class="field">
+            <span>视频或文章链接</span>
+            <textarea id="url" rows="5" required placeholder="粘贴 YouTube 视频/频道/播放列表，或公开文章链接，例如 https://www.youtube.com/watch?v=..."></textarea>
+          </label>
+
+          <div class="inline-fields">
+            <label class="field">
+              <span>批量上限</span>
+              <input id="limit" type="number" min="1" max="50" placeholder="单视频留空" />
+            </label>
+            <label class="field">
+              <span>输出目录</span>
+              <input id="output" type="text" value="output" />
+            </label>
+          </div>
+
+          <label class="check-row">
+            <input id="translate" type="checkbox" />
+            <span>生成中文翻译（读取本机 DEEPSEEK_API_KEY 或项目 .env）</span>
+          </label>
+
+          <div class="button-row">
+            <button id="submit" type="submit">抓取内容</button>
+            <button id="immersive-translate" class="secondary-button" type="submit">沉浸式翻译</button>
+          </div>
+          <p class="fineprint">请仅将字幕用于个人学习、跟读训练或研究，不要公开转载或商业分发。</p>
+        </form>
+
+        <section class="result-panel">
+          <div class="result-header">
+            <div>
+              <h2>内容预览</h2>
+              <p id="status">等待链接。</p>
+            </div>
+            <div id="download-links" class="download-links"></div>
+          </div>
+
+          <div id="warnings" class="warnings" hidden></div>
+          <div id="transcript" class="transcript empty">
+            <p>抓取完成后，这里会显示原文与中文译文。</p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js?v=9"></script>
+  </body>
+</html>

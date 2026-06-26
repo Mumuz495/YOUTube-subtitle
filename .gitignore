@@ -1,0 +1,29 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+output/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Local exports and adjacent experiments that are not part of Subtitle Studio.
+linkedin_jobs_*.csv
+linkedin_jobs_*.html
+README (1).md
+fetch_transcript (1).py
+MediaCrawler/
