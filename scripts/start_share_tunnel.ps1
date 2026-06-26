@@ -2,6 +2,8 @@ param(
     [int]$Port = 8765,
     [string]$Username = "friend",
     [string]$Password = "",
+    [ValidateSet("auto", "quic", "http2")]
+    [string]$Protocol = "auto",
     [switch]$SkipDownload
 )
 
@@ -77,7 +79,13 @@ try {
         Write-Host "Username: $Username" -ForegroundColor Green
         Write-Host "Password: the temporary password you just set" -ForegroundColor Green
         Write-Host ""
-        & $cloudflared tunnel --url "http://127.0.0.1:$Port"
+        $tunnelArgs = @("tunnel")
+        if ($Protocol -ne "auto") {
+            $tunnelArgs += @("--protocol", $Protocol)
+        }
+        $tunnelArgs += @("--url", "http://127.0.0.1:$Port")
+
+        & $cloudflared @tunnelArgs
     }
     finally {
         if ($appProcess -and -not $appProcess.HasExited) {

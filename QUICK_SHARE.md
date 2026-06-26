@@ -36,6 +36,12 @@ friend
 .\scripts\start_share_tunnel.ps1 -Port 8765 -Username friend -Password "临时强密码"
 ```
 
+如果终端日志里出现 QUIC 连接失败，可以试试 HTTP/2：
+
+```powershell
+.\scripts\start_share_tunnel.ps1 -Protocol http2
+```
+
 ## 注意事项
 
 - 这是临时分享方式，不是长期正式部署。
@@ -43,6 +49,25 @@ friend
 - 每次重新运行通常会得到一个新的随机网址。
 - 不要把 DeepSeek API Key 发给朋友；它只应该保存在你本机 `.env` 或正式部署平台的环境变量里。
 - 脚本会开启公网模式：密码保护、POST 限流、生成文件 24 小时清理都会生效。
+
+## 如果出现 530 或隧道连不上
+
+如果朋友打开网址看到 530，或者终端日志里出现类似：
+
+```text
+QUIC connection failed
+HTTP/2 connection is blocked or unreachable
+TLS handshake with edge error
+```
+
+说明你当前网络可能阻止了 Cloudflare Tunnel 需要的出站连接。可以依次尝试：
+
+1. 换一个网络，比如手机热点。
+2. 使用 `-Protocol http2` 再启动一次。
+3. 检查防火墙是否允许 `cloudflared.exe` 出站。
+4. 放弃临时隧道，改用 `DEPLOY_WEBSITE.md` 里的 Render / Fly.io / Railway 正式部署。
+
+我在这台机器上实测时，Cloudflare API 可以访问，但 Tunnel 到边缘节点的 QUIC/HTTP2 连接被阻断，所以生成了 `trycloudflare.com` 地址但公网 smoke 返回 530。这种情况不是 Subtitle Studio 应用本身坏了。
 
 ## 什么时候用正式部署
 

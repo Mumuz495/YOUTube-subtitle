@@ -46,6 +46,8 @@ PORT=8765
 
 详细说明见 `QUICK_SHARE.md`。
 
+如果 Cloudflare Quick Tunnel 返回 530，多半是当前网络阻止了 `cloudflared` 到 Cloudflare 边缘节点的出站连接。可以换网络、尝试 `.\scripts\start_share_tunnel.ps1 -Protocol http2`，或直接走正式部署。
+
 优点：
 
 - 最快
