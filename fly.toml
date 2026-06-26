@@ -1,0 +1,30 @@
+app = "subtitle-studio"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  HOST = "0.0.0.0"
+  PORT = "8765"
+  PUBLIC_DEPLOYMENT = "1"
+  RATE_LIMIT_ENABLED = "1"
+  RATE_LIMIT_MAX_REQUESTS = "60"
+  RATE_LIMIT_WINDOW_SECONDS = "600"
+  OUTPUT_RETENTION_HOURS = "24"
+  APP_USERNAME = "friend"
+
+[http_service]
+  internal_port = 8765
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/healthz"
