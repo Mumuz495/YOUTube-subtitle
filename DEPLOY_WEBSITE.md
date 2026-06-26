@@ -68,6 +68,12 @@ PORT=8765
 大致流程：
 
 1. 把项目推送到 GitHub / Gitee / GitLab。
+   Windows 可以运行：
+
+```powershell
+.\scripts\publish_remote.ps1 -RemoteUrl "https://github.com/你的用户名/subtitle-studio.git"
+```
+
 2. 推送前先运行部署前自检：
 
 ```bash

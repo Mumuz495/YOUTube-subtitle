@@ -27,6 +27,14 @@ git remote add origin https://github.com/你的用户名/subtitle-studio.git
 git push -u origin main
 ```
 
+Windows 也可以直接用项目脚本：
+
+```powershell
+.\scripts\publish_remote.ps1 -RemoteUrl "https://github.com/你的用户名/subtitle-studio.git"
+```
+
+这个脚本会先运行 `python scripts/preflight.py`，确认没有明显问题后再推送。
+
 以后更新：
 
 ```bash

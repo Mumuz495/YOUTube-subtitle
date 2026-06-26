@@ -34,6 +34,7 @@ REQUIRED_FILES = [
     "DEPLOY_WEBSITE.md",
     "RELEASE_CHECKLIST.md",
     "WEBSITE_ARCHITECTURE.md",
+    "scripts/publish_remote.ps1",
     "scripts/smoke_deployment.py",
     "scripts/start_share_tunnel.ps1",
     "QUICK_SHARE.md",
