@@ -18,6 +18,9 @@ SECRET_PATTERNS = [
 REQUIRED_FILES = [
     "app.py",
     "transcript_tool.py",
+    "subtitle_studio/__init__.py",
+    "subtitle_studio/web_config.py",
+    "subtitle_studio/web_paths.py",
     "static/index.html",
     "static/app.js",
     "static/styles.css",
@@ -96,7 +99,11 @@ def main() -> int:
         "transcript_tool.py",
         "fetch_transcript.py",
         "daily_run.py",
+        "subtitle_studio/__init__.py",
+        "subtitle_studio/web_config.py",
+        "subtitle_studio/web_paths.py",
         "scripts/smoke_deployment.py",
+        "scripts/preflight.py",
     ])
     checks.append(("python compile", compile_ok, compile_output))
 

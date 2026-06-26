@@ -12,6 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from subtitle_studio.web_config import max_request_bytes, resolve_web_output_root
+from subtitle_studio.web_paths import ROOT, STATIC_DIR, resolve_download_path, resolve_static_path
 from transcript_tool import (
     DEFAULT_OUTPUT_DIR,
     analyze_vocab_term,
@@ -20,12 +22,6 @@ from transcript_tool import (
     process_url,
     save_study_sheet_html,
 )
-
-ROOT = Path(__file__).resolve().parent
-STATIC_DIR = ROOT / "static"
-OUTPUT_DIR = (ROOT / DEFAULT_OUTPUT_DIR).resolve()
-TRUTHY_VALUES = {"1", "true", "yes", "on"}
-DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024
 
 
 class TranscriptAppHandler(BaseHTTPRequestHandler):
@@ -73,7 +69,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             url = str(payload.get("url", "")).strip()
-            output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
+            output = resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)), DEFAULT_OUTPUT_DIR)
             translate = bool(payload.get("translate", False))
             limit = _coerce_limit(payload.get("limit"))
 
@@ -89,7 +85,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             html = str(payload.get("html", ""))
-            output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
+            output = resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)), DEFAULT_OUTPUT_DIR)
             export_format = str(payload.get("format", "html")).strip() or "html"
             path = save_study_sheet_html(html, output, export_format=export_format)
             self._send_json({"ok": True, "file": path})
@@ -115,7 +111,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             text = str(payload.get("text", "")).strip()
-            output = _resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)))
+            output = resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)), DEFAULT_OUTPUT_DIR)
             voice_profile = str(payload.get("voice_profile", "us-female")).strip() or "us-female"
             rate = str(payload.get("rate", "1")).strip() or "1"
             path = generate_tts_audio(text, output_root=output, voice_profile=voice_profile, rate=rate)
@@ -128,7 +124,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _read_json_body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
-        if length > _max_request_bytes():
+        if length > max_request_bytes():
             raise ValueError("请求内容过大，请缩短文本或分批处理。")
         if length <= 0:
             return {}
@@ -160,7 +156,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def _send_file(self, path: Path):
         try:
-            resolved = _resolve_static_path(path)
+            resolved = resolve_static_path(path)
             content = resolved.read_bytes()
         except FileNotFoundError:
             self._send_json({"ok": False, "error": "File not found"}, status=404)
@@ -183,7 +179,7 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            resolved = _resolve_download_path(raw_path)
+            resolved = resolve_download_path(raw_path, DEFAULT_OUTPUT_DIR)
             content = resolved.read_bytes()
         except FileNotFoundError:
             self._send_json({"ok": False, "error": "File not found"}, status=404)
@@ -216,69 +212,6 @@ def _coerce_limit(value) -> int | None:
     if limit < 1:
         return None
     return min(limit, 50)
-
-
-def _env_bool(name: str, default: bool = False) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value.strip().lower() in TRUTHY_VALUES
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return default
-    try:
-        return max(1, int(raw))
-    except ValueError:
-        return default
-
-
-def _max_request_bytes() -> int:
-    return _env_int("MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES)
-
-
-def _is_public_deployment() -> bool:
-    host = os.environ.get("HOST", "127.0.0.1").strip()
-    return (
-        _env_bool("PUBLIC_DEPLOYMENT")
-        or bool(os.environ.get("APP_PASSWORD", "").strip())
-        or host in {"0.0.0.0", "::"}
-    )
-
-
-def _allow_custom_output_dir() -> bool:
-    return _env_bool("ALLOW_CUSTOM_OUTPUT_DIR", default=not _is_public_deployment())
-
-
-def _resolve_web_output_root(value: str) -> str:
-    output = str(value or DEFAULT_OUTPUT_DIR).strip() or DEFAULT_OUTPUT_DIR
-    if _allow_custom_output_dir():
-        return output
-    return DEFAULT_OUTPUT_DIR
-
-
-def _resolve_download_path(raw_path: str) -> Path:
-    resolved = (ROOT / raw_path).resolve() if not os.path.isabs(raw_path) else Path(raw_path).resolve()
-    try:
-        resolved.relative_to(OUTPUT_DIR)
-    except ValueError as exc:
-        raise FileNotFoundError from exc
-    if not resolved.is_file():
-        raise FileNotFoundError
-    return resolved
-
-
-def _resolve_static_path(path: Path) -> Path:
-    resolved = path.resolve()
-    try:
-        resolved.relative_to(STATIC_DIR.resolve())
-    except ValueError as exc:
-        raise FileNotFoundError from exc
-    if not resolved.is_file():
-        raise FileNotFoundError
-    return resolved
 
 
 def main():

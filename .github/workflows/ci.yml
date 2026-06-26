@@ -28,7 +28,7 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Compile Python files
-        run: python -m py_compile app.py transcript_tool.py fetch_transcript.py daily_run.py scripts/smoke_deployment.py scripts/preflight.py
+        run: python -m py_compile app.py transcript_tool.py fetch_transcript.py daily_run.py subtitle_studio/*.py scripts/smoke_deployment.py scripts/preflight.py
 
       - name: Run tests
         env:

@@ -36,12 +36,14 @@
 当前项目主要文件：
 
 - `app.py`：HTTP 服务、路由、认证、下载保护
+- `subtitle_studio/web_config.py`：公网/本地模式、请求大小、输出目录策略
+- `subtitle_studio/web_paths.py`：静态文件和下载文件的路径安全
 - `transcript_tool.py`：字幕抓取、文章抓取、翻译、生词解释、TTS、导出
 - `static/`：浏览器界面
 - `tests/`：回归测试
 - `Dockerfile`：网站部署
 
-现在可以上线，但 `transcript_tool.py` 已经偏大。后续不要继续把所有能力都塞进这一个文件。
+现在可以上线，并且 Web 层的配置和路径安全已经从 `app.py` 里拆出来。`transcript_tool.py` 仍然偏大，后续不要继续把所有能力都塞进这一个文件。
 
 ## 推荐代码拆分路线
 
