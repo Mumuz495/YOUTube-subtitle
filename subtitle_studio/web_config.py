@@ -7,6 +7,8 @@ import os
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024
+DEFAULT_RATE_LIMIT_MAX_REQUESTS = 60
+DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 10 * 60
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -48,3 +50,15 @@ def resolve_web_output_root(value: str, default_output_dir: str) -> str:
     if allow_custom_output_dir():
         return output
     return default_output_dir
+
+
+def rate_limit_enabled() -> bool:
+    return env_bool("RATE_LIMIT_ENABLED", default=is_public_deployment())
+
+
+def rate_limit_max_requests() -> int:
+    return env_int("RATE_LIMIT_MAX_REQUESTS", DEFAULT_RATE_LIMIT_MAX_REQUESTS)
+
+
+def rate_limit_window_seconds() -> int:
+    return env_int("RATE_LIMIT_WINDOW_SECONDS", DEFAULT_RATE_LIMIT_WINDOW_SECONDS)

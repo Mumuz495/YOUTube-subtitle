@@ -9,6 +9,12 @@ services:
         value: 0.0.0.0
       - key: PUBLIC_DEPLOYMENT
         value: "1"
+      - key: RATE_LIMIT_ENABLED
+        value: "1"
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: "60"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "600"
       - key: APP_USERNAME
         value: friend
       - key: APP_PASSWORD

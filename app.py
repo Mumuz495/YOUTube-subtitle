@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
+from subtitle_studio.web_limits import RATE_LIMITER, RATE_LIMIT_STATUS, client_key
 from subtitle_studio.web_config import max_request_bytes, resolve_web_output_root
 from subtitle_studio.web_paths import ROOT, STATIC_DIR, resolve_download_path, resolve_static_path
 from transcript_tool import (
@@ -49,6 +50,8 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if not self._ensure_authorized():
+            return
+        if not self._ensure_rate_limit():
             return
 
         parsed_path = urlparse(self.path).path
@@ -152,6 +155,23 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.end_headers()
         self.wfile.write("需要访问密码。".encode("utf-8"))
+        return False
+
+    def _ensure_rate_limit(self) -> bool:
+        result = RATE_LIMITER.check(client_key(self.headers, self.client_address))
+        if result.allowed:
+            return True
+
+        self.send_response(RATE_LIMIT_STATUS)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Retry-After", str(result.retry_after))
+        content = json.dumps(
+            {"ok": False, "error": f"请求太频繁，请 {result.retry_after} 秒后再试。"},
+            ensure_ascii=False,
+        ).encode("utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
         return False
 
     def _send_file(self, path: Path):
