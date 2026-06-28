@@ -215,3 +215,20 @@ PUBLIC_DEPLOYMENT=1
 - 文件读写统一走 storage
 - HTTP 层只做请求和响应
 - 每次加安全边界都补测试
+## Cloudflare 部署形态
+
+Cloudflare 版本采用 Workers + Containers：
+
+```text
+Browser
+  -> Cloudflare Worker
+    -> Cloudflare Container
+      -> Python app.py
+      -> output/
+      -> DeepSeek API
+      -> YouTube / article pages
+```
+
+Worker 入口在 `src/cloudflare-worker.js`，容器镜像由 `Dockerfile` 构建。`wrangler.toml` 绑定了 `SubtitleStudioContainer`，并把 `DEEPSEEK_API_KEY` 与 `APP_PASSWORD` 作为 Cloudflare secrets 注入容器。这样 API Key 仍然只在服务端存在，朋友访问网站时不会看到密钥。
+
+当前 V1 仍然是单容器、统一密码、小范围朋友使用的形态。等使用人数上来，再考虑 Cloudflare D1 / R2 / Queues 或其他数据库和对象存储。

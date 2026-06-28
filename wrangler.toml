@@ -1,0 +1,30 @@
+name = "subtitle-studio"
+main = "src/cloudflare-worker.js"
+compatibility_date = "2026-06-26"
+workers_dev = true
+
+[vars]
+APP_USERNAME = "friend"
+PUBLIC_DEPLOYMENT = "1"
+ALLOW_CUSTOM_OUTPUT_DIR = "0"
+RATE_LIMIT_ENABLED = "1"
+RATE_LIMIT_MAX_REQUESTS = "60"
+RATE_LIMIT_WINDOW_SECONDS = "600"
+OUTPUT_RETENTION_HOURS = "24"
+MAX_REQUEST_BYTES = "8388608"
+
+[secrets]
+required = [ "DEEPSEEK_API_KEY", "APP_PASSWORD" ]
+
+[[containers]]
+class_name = "SubtitleStudioContainer"
+image = "./Dockerfile"
+max_instances = 1
+
+[[durable_objects.bindings]]
+name = "SUBTITLE_STUDIO_CONTAINER"
+class_name = "SubtitleStudioContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = [ "SubtitleStudioContainer" ]

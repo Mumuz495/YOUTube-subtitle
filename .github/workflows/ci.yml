@@ -17,6 +17,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -27,8 +33,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Install Cloudflare Worker dependencies
+        run: npm ci
+
       - name: Compile Python files
         run: python -m py_compile app.py transcript_tool.py fetch_transcript.py daily_run.py subtitle_studio/*.py scripts/smoke_deployment.py scripts/preflight.py
+
+      - name: Check Cloudflare Worker syntax
+        run: node --check src/cloudflare-worker.js
 
       - name: Run tests
         env:

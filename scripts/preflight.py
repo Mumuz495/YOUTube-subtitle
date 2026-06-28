@@ -30,8 +30,14 @@ REQUIRED_FILES = [
     "Dockerfile",
     "render.yaml",
     "fly.toml",
+    "package.json",
+    "package-lock.json",
+    "wrangler.toml",
+    "src/cloudflare-worker.js",
     ".dockerignore",
+    ".dev.vars.example",
     "DEPLOY_WEBSITE.md",
+    "CLOUDFLARE_DEPLOY.md",
     "RELEASE_CHECKLIST.md",
     "WEBSITE_ARCHITECTURE.md",
     "scripts/publish_remote.ps1",
@@ -39,7 +45,19 @@ REQUIRED_FILES = [
     "scripts/start_share_tunnel.ps1",
     "QUICK_SHARE.md",
 ]
-SCAN_EXTENSIONS = {".py", ".js", ".css", ".html", ".md", ".txt", ".yaml", ".yml", ".example"}
+SCAN_EXTENSIONS = {
+    ".py",
+    ".js",
+    ".css",
+    ".html",
+    ".md",
+    ".txt",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".json",
+    ".example",
+}
 SKIP_DIRS = {".git", ".venv", "venv", "env", "output", "__pycache__", "MediaCrawler"}
 
 
@@ -86,6 +104,13 @@ def check_gitignore() -> list[str]:
     return issues
 
 
+def check_cloudflare_worker_syntax() -> tuple[bool, str]:
+    node_available, node_output = run(["node", "--version"])
+    if not node_available:
+        return False, f"node is required for Cloudflare Worker checks: {node_output}"
+    return run(["node", "--check", "src/cloudflare-worker.js"])
+
+
 def main() -> int:
     checks: list[tuple[str, bool, str]] = []
 
@@ -118,6 +143,9 @@ def main() -> int:
 
     tests_ok, tests_output = run([sys.executable, "-m", "unittest", "discover", "-s", "tests"])
     checks.append(("unit tests", tests_ok, tests_output))
+
+    worker_ok, worker_output = check_cloudflare_worker_syntax()
+    checks.append(("cloudflare worker syntax", worker_ok, worker_output))
 
     all_ok = True
     for name, ok, detail in checks:

@@ -133,3 +133,22 @@ python scripts/smoke_deployment.py https://你的网站地址 --username friend 
 - `python scripts/smoke_deployment.py ...`
 - `DEPLOY_WEBSITE.md`
 - `WEBSITE_ARCHITECTURE.md`
+## Cloudflare 发布补充
+
+如果这次选择发布到 Cloudflare，请按 `CLOUDFLARE_DEPLOY.md` 操作。Cloudflare 版本走 Containers：
+
+```bash
+npm install
+npx wrangler login
+npx wrangler secret put DEEPSEEK_API_KEY
+npx wrangler secret put APP_PASSWORD
+npm run cf:deploy
+```
+
+发布后继续运行 smoke test：
+
+```bash
+python scripts/smoke_deployment.py https://你的-worker.workers.dev --username friend --password 访问密码
+```
+
+Cloudflare Containers 需要 Workers Paid plan 和本机 Docker Desktop。没有 Docker 时，当前电脑只能准备配置，不能实际执行 `wrangler deploy`。

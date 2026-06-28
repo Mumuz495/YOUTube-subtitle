@@ -194,3 +194,25 @@ Render、Fly.io、Railway 都支持从仓库里的 Dockerfile 构建运行容器
 - 公网部署默认保留生成文件 24 小时，可以用 `OUTPUT_RETENTION_HOURS` 调整；朋友下载完 PDF/DOCX 后应本地保存。
 - 视频、文章和字幕内容涉及版权，请只用于个人学习、跟读训练和研究。
 - `output/` 在容器里通常是临时文件，平台重启后可能丢失。朋友下载完 DOCX/PDF 后，本地保存即可。
+## Cloudflare Containers 路线
+
+如果你想发布到 Cloudflare，请使用 Cloudflare Containers，而不是普通 Cloudflare Pages。当前项目需要 Python 后端、Chromium、DOCX/PDF 导出和 DeepSeek 密钥保护，不能作为纯静态网站托管。
+
+项目已经包含：
+
+- `wrangler.toml`：Cloudflare Worker + Container 配置
+- `src/cloudflare-worker.js`：Worker 入口，负责启动 Python 容器并转发请求
+- `package.json` / `package-lock.json`：Wrangler 和 `@cloudflare/containers` 依赖
+- `CLOUDFLARE_DEPLOY.md`：Cloudflare 专用发布步骤
+
+快速命令：
+
+```bash
+npm install
+npx wrangler login
+npx wrangler secret put DEEPSEEK_API_KEY
+npx wrangler secret put APP_PASSWORD
+npm run cf:deploy
+```
+
+注意：Cloudflare Containers 需要 Workers Paid plan，并且本机部署时需要 Docker Desktop 正常运行。

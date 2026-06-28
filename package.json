@@ -1,0 +1,26 @@
+{
+  "name": "subtitle-studio-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cf:deploy": "wrangler deploy",
+    "cf:types": "wrangler types",
+    "cf:containers": "wrangler containers list"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.2.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.102.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "DEEPSEEK_API_KEY": {
+        "description": "DeepSeek API key used by the Python container for translation and vocabulary analysis."
+      },
+      "APP_PASSWORD": {
+        "description": "Shared access password required before friends can use the web app."
+      }
+    }
+  }
+}
