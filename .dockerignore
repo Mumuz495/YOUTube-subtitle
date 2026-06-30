@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
 
 output/
 __pycache__/
@@ -10,12 +12,23 @@ tests/__pycache__/
 .venv/
 venv/
 env/
+node_modules/
+.tools/
+.github/
 
 MediaCrawler/
 linkedin_jobs_*.csv
 linkedin_jobs_*.html
 README (1).md
 fetch_transcript (1).py
+package-lock.json
+Dockerfile
+CLOUDFLARE_DEPLOY.md
+DEPLOY_WEBSITE.md
+RELEASE_CHECKLIST.md
+WEBSITE_ARCHITECTURE.md
+CHANGE_COMPUTER_GUIDE.md
+QUICK_SHARE.md
 
 .DS_Store
 Thumbs.db
