@@ -1,11 +1,14 @@
 {
-  "name": "subtitle-studio-cloudflare",
+  "name": "subtitle-studio-deploy",
   "private": true,
   "type": "module",
   "scripts": {
     "cf:deploy": "wrangler deploy",
     "cf:types": "wrangler types",
-    "cf:containers": "wrangler containers list"
+    "cf:containers": "wrangler containers list",
+    "vercel:preview": "npx vercel",
+    "vercel:deploy": "npx vercel --prod",
+    "vercel:pull": "npx vercel pull --yes"
   },
   "dependencies": {
     "@cloudflare/containers": "^0.2.0"

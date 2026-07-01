@@ -27,6 +27,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+.vercel/
 
 # Local exports and adjacent experiments that are not part of Subtitle Studio.
 linkedin_jobs_*.csv

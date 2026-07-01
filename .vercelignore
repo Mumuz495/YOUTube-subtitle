@@ -1,0 +1,28 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+.vercel
+.tools
+node_modules
+
+output
+__pycache__
+tests/__pycache__
+.pytest_cache
+.venv
+venv
+env
+
+MediaCrawler
+linkedin_jobs_*.csv
+linkedin_jobs_*.html
+README (1).md
+fetch_transcript (1).py
+
+.DS_Store
+Thumbs.db
+*.log
