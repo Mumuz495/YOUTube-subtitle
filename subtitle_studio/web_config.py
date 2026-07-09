@@ -7,6 +7,7 @@ import os
 
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 DEFAULT_MAX_REQUEST_BYTES = 8 * 1024 * 1024
+DEFAULT_PDF_MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 DEFAULT_RATE_LIMIT_MAX_REQUESTS = 60
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 10 * 60
 DEFAULT_PUBLIC_OUTPUT_RETENTION_HOURS = 24
@@ -41,6 +42,18 @@ def env_float(name: str, default: float) -> float:
 
 def max_request_bytes() -> int:
     return env_int("MAX_REQUEST_BYTES", DEFAULT_MAX_REQUEST_BYTES)
+
+
+def pdf_max_upload_bytes() -> int:
+    return env_int("PDF_MAX_UPLOAD_BYTES", DEFAULT_PDF_MAX_UPLOAD_BYTES)
+
+
+def pdf_max_upload_label() -> str:
+    size = pdf_max_upload_bytes()
+    mb = size / 1024 / 1024
+    if mb >= 10 and abs(mb - round(mb)) < 0.05:
+        return f"{int(round(mb))} MB"
+    return f"{mb:.1f} MB"
 
 
 def is_public_deployment() -> bool:

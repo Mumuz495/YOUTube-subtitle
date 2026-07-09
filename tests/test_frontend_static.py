@@ -98,6 +98,30 @@ class FrontendStaticTests(unittest.TestCase):
         self.assertIn(".speak-button", styles)
         self.assertIn(".is-speaking", styles)
 
+    def test_pdf_upload_can_be_sent_for_reading(self):
+        html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+        script = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+        styles = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="pdf-file"', html)
+        self.assertIn('accept="application/pdf,.pdf"', html)
+        self.assertIn("PDF", html)
+        self.assertIn('fetch("/api/pdf-upload"', script)
+        self.assertIn("new FormData()", script)
+        self.assertIn('formData.append("pdf"', script)
+        self.assertIn('fetch("/api/config"', script)
+        self.assertIn("source_type === \"pdf\"", script)
+        self.assertIn(".pdf-upload", styles)
+
+    def test_pdf_upload_uses_configured_size_limit(self):
+        script = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+        self.assertIn("pdfMaxUploadBytes", script)
+        self.assertIn("pdfMaxUploadLabel", script)
+        self.assertIn("pdfFile.size > pdfMaxUploadBytes", script)
+        self.assertIn("PDF 文件太大", script)
+        self.assertIn("OCR", script)
+
 
 if __name__ == "__main__":
     unittest.main()

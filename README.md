@@ -171,8 +171,15 @@ Then edit `.env` and add your local `DEEPSEEK_API_KEY`.
 | `RATE_LIMIT_WINDOW_SECONDS` | No | `600` | Rate-limit window length. |
 | `OUTPUT_RETENTION_HOURS` | Public deploys | `0` locally | Removes generated output files after the configured time. |
 | `MAX_REQUEST_BYTES` | No | `8388608` | Maximum accepted JSON request body size. |
+| `PDF_MAX_UPLOAD_BYTES` | No | `209715200` | Maximum accepted multipart PDF upload size (default 200 MB). |
 
-## Export Formats
+## PDF Upload Limits
+
+- Small PDF uploads can still use the legacy JSON endpoint `POST /api/pdf`.
+- The web UI now prefers `POST /api/pdf-upload` with `multipart/form-data`, so large PDFs are not expanded into base64 JSON.
+- Local development supports large scan PDFs up to `PDF_MAX_UPLOAD_BYTES` (default `200 MB`).
+- Scan PDFs may trigger Windows OCR and can take several minutes. The UI shows an OCR-in-progress message while waiting.
+- Hosted platforms may enforce their own request-body limits. Vercel and many reverse proxies cap uploads far below 200 MB, so very large PDFs are best handled on local `py app.py` or your own server/container.
 
 The study sheet can be exported as:
 

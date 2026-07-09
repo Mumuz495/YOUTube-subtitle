@@ -8,19 +8,22 @@ import mimetypes
 import os
 import base64
 import hmac
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from subtitle_studio.web_cleanup import cleanup_generated_output
 from subtitle_studio.web_limits import RATE_LIMITER, RATE_LIMIT_STATUS, client_key
-from subtitle_studio.web_config import max_request_bytes, resolve_web_output_root
+from subtitle_studio.web_config import max_request_bytes, pdf_max_upload_bytes, pdf_max_upload_label, resolve_web_output_root
+from subtitle_studio.web_multipart import parse_multipart_form, pick_uploaded_pdf
 from subtitle_studio.web_paths import ROOT, STATIC_DIR, resolve_download_path, resolve_static_path
 from transcript_tool import (
     DEFAULT_OUTPUT_DIR,
     analyze_vocab_term,
     generate_tts_audio,
     get_deepseek_api_key,
+    process_pdf_upload,
     process_url,
     save_study_sheet_html,
 )
@@ -33,6 +36,16 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/healthz":
             self._send_json({"ok": True, "service": "subtitle-studio"})
+            return
+        if parsed.path == "/api/config":
+            self._send_json(
+                {
+                    "ok": True,
+                    "pdf_max_upload_bytes": pdf_max_upload_bytes(),
+                    "pdf_max_upload_label": pdf_max_upload_label(),
+                    "max_request_bytes": max_request_bytes(),
+                }
+            )
             return
 
         if not self._ensure_authorized():
@@ -65,6 +78,12 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
             return
         if parsed_path == "/api/tts":
             self._handle_tts_request()
+            return
+        if parsed_path == "/api/pdf":
+            self._handle_pdf_request()
+            return
+        if parsed_path == "/api/pdf-upload":
+            self._handle_pdf_upload_request()
             return
 
         if parsed_path != "/api/fetch":
@@ -123,6 +142,82 @@ class TranscriptAppHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "file": path, "url": f"/download?path={path}"})
         except Exception as exc:
             self._send_json({"ok": False, "error": str(exc)}, status=400)
+
+    def _handle_pdf_request(self):
+        try:
+            payload = self._read_json_body()
+            filename = str(payload.get("filename", "uploaded.pdf")).strip() or "uploaded.pdf"
+            encoded = str(payload.get("pdf_file", "")).strip()
+            output = resolve_web_output_root(str(payload.get("output", DEFAULT_OUTPUT_DIR)), DEFAULT_OUTPUT_DIR)
+            translate = bool(payload.get("translate", False))
+
+            if not encoded:
+                raise ValueError("请先选择 PDF 文件。")
+            if "," in encoded and encoded.split(",", 1)[0].startswith("data:"):
+                encoded = encoded.split(",", 1)[1]
+
+            pdf_bytes = base64.b64decode(encoded, validate=True)
+            self._send_json(self._process_pdf_bytes(pdf_bytes, filename, output, translate))
+        except Exception as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+
+    def _handle_pdf_upload_request(self):
+        try:
+            content_type = self.headers.get("Content-Type", "")
+            content_length = int(self.headers.get("Content-Length", "0") or 0)
+            if content_length <= 0:
+                raise ValueError("请先选择 PDF 文件。")
+            if content_length > pdf_max_upload_bytes():
+                limit_label = pdf_max_upload_label()
+                raise ValueError(f"PDF 文件超过上传上限（最大 {limit_label}）。")
+
+            body = self.rfile.read(content_length)
+            form = parse_multipart_form(content_type, body, max_bytes=pdf_max_upload_bytes())
+            uploaded = pick_uploaded_pdf(form)
+            if uploaded is None:
+                raise ValueError("请先选择 PDF 文件。")
+
+            filename = str(form.fields.get("filename") or uploaded.filename or "uploaded.pdf").strip() or "uploaded.pdf"
+            output = resolve_web_output_root(str(form.fields.get("output", DEFAULT_OUTPUT_DIR)), DEFAULT_OUTPUT_DIR)
+            translate = str(form.fields.get("translate", "")).strip().lower() in {"1", "true", "yes", "on"}
+            pdf_bytes = uploaded.data
+            if not pdf_bytes:
+                raise ValueError("PDF 文件为空。")
+
+            self._save_uploaded_pdf(pdf_bytes, filename, output)
+            self._send_json(self._process_pdf_bytes(pdf_bytes, filename, output, translate))
+        except Exception as exc:
+            self._send_json({"ok": False, "error": str(exc)}, status=400)
+
+    def _process_pdf_bytes(self, pdf_bytes: bytes, filename: str, output: str, translate: bool) -> dict:
+        api_key = get_deepseek_api_key()
+        warnings: list[str] = []
+        if translate and not api_key:
+            translate = False
+            warnings.append("未设置 DEEPSEEK_API_KEY，已自动跳过中文翻译。")
+
+        result = process_pdf_upload(pdf_bytes, filename, output, translate=translate, api_key=api_key)
+        return {
+            "ok": bool(result.get("ok")),
+            "video_ids": [],
+            "results": [result],
+            "warnings": warnings,
+            "output_root": str(Path(output)),
+        }
+
+    def _save_uploaded_pdf(self, pdf_bytes: bytes, filename: str, output: str) -> Path | None:
+        try:
+            uploads_dir = Path(output) / "uploads"
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = Path(str(filename or "uploaded.pdf")).name or "uploaded.pdf"
+            if not safe_name.lower().endswith(".pdf"):
+                safe_name = f"{safe_name}.pdf"
+            stamp = re.sub(r"[^0-9A-Za-z_.-]+", "-", self.log_date_time_string()).strip("-")
+            target = uploads_dir / f"{stamp}_{safe_name}"
+            target.write_bytes(pdf_bytes)
+            return target
+        except OSError:
+            return None
 
     def log_message(self, fmt, *args):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))

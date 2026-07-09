@@ -18,6 +18,7 @@ from transcript_tool import (
     generate_tts_audio,
     get_deepseek_api_key,
     is_single_video,
+    process_pdf_upload,
     process_url,
     process_video,
     save_outputs,
@@ -192,6 +193,41 @@ class TranscriptToolTests(unittest.TestCase):
         self.assertEqual(item["title"], "An Article")
         self.assertEqual(item["full"][0]["text"], "Paragraph one.")
         self.assertEqual(item["full"][0]["text_zh"], "第一段。")
+
+    def test_process_pdf_upload_extracts_readable_text(self):
+        import fitz
+
+        document = fitz.open()
+        page = document.new_page()
+        page.insert_text((72, 72), "Sandra Cisneros writes about memory and identity.")
+        page.insert_text((72, 100), "Her essays are useful for English reading practice.")
+        pdf_bytes = document.tobytes()
+        document.close()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = process_pdf_upload(pdf_bytes, "Sandra Cisneros.pdf", tmp)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["source_type"], "pdf")
+        self.assertEqual(result["title"], "Sandra Cisneros.pdf")
+        self.assertEqual(result["author"], "PDF")
+        self.assertIn("memory and identity", result["full"][0]["text"])
+        self.assertIn("txt", result["files"])
+
+    def test_pdf_upload_uses_ocr_fallback_for_scanned_pages(self):
+        import fitz
+
+        document = fitz.open()
+        document.new_page()
+        pdf_bytes = document.tobytes()
+        document.close()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("transcript_tool._extract_pdf_text_with_ocr", return_value=["OCR recognized English text."]):
+                result = process_pdf_upload(pdf_bytes, "scan.pdf", tmp)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["full"][0]["text"], "OCR recognized English text.")
 
     def test_analyze_vocab_term_returns_structured_definition(self):
         class FakeResponse:

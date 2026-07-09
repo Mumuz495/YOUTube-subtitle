@@ -285,6 +285,132 @@ def fetch_article(url: str) -> dict[str, Any]:
     }
 
 
+def extract_pdf_text(pdf_bytes: bytes) -> list[str]:
+    """Extract readable paragraphs from a text-based PDF upload."""
+    if not pdf_bytes:
+        raise ValueError("PDF 文件为空。")
+
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError("缺少 PyMuPDF，无法读取 PDF。请先运行：py -m pip install -r requirements.txt") from exc
+
+    try:
+        document = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as exc:
+        raise ValueError("无法打开这个 PDF，请确认文件没有损坏或加密。") from exc
+
+    try:
+        paragraphs: list[str] = []
+        seen: set[str] = set()
+        for page in document:
+            text = page.get_text("text")
+            for paragraph in _split_pdf_paragraphs(text):
+                if paragraph in seen:
+                    continue
+                paragraphs.append(paragraph)
+                seen.add(paragraph)
+    finally:
+        document.close()
+
+    if not paragraphs:
+        paragraphs = _extract_pdf_text_with_ocr(pdf_bytes)
+
+    return paragraphs
+
+
+def _split_pdf_paragraphs(text: str) -> list[str]:
+    normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    blocks = re.split(r"\n\s*\n+", normalized)
+    paragraphs: list[str] = []
+    for block in blocks:
+        lines = [line.strip() for line in block.splitlines() if line.strip()]
+        if not lines:
+            continue
+        paragraph = " ".join(lines)
+        paragraph = re.sub(r"\s+", " ", paragraph).strip()
+        if len(paragraph) >= 12:
+            paragraphs.append(paragraph)
+    return paragraphs
+
+
+def _extract_pdf_text_with_ocr(pdf_bytes: bytes) -> list[str]:
+    if os.name != "nt":
+        raise RuntimeError("没有从 PDF 中识别到可复制文本。它可能是扫描版图片，需要先 OCR。")
+
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError("缺少 PyMuPDF，无法读取 PDF。请先运行：py -m pip install -r requirements.txt") from exc
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        image_paths: list[Path] = []
+        document = fitz.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            for index, page in enumerate(document):
+                image_path = tmp_dir / f"page-{index + 1:04d}.png"
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                pixmap.save(image_path)
+                image_paths.append(image_path)
+        finally:
+            document.close()
+
+        if not image_paths:
+            raise RuntimeError("PDF 中没有可读取页面。")
+
+        script = _build_windows_ocr_script(image_paths)
+        completed = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=max(90, min(600, len(image_paths) * 20)),
+        )
+
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise RuntimeError(f"PDF 是扫描版图片，但系统 OCR 读取失败：{detail or 'Windows OCR 不可用。'}")
+
+    paragraphs = _split_pdf_paragraphs(completed.stdout)
+    if not paragraphs:
+        raise RuntimeError("PDF 是扫描版图片，但 OCR 没有识别到可用文字。")
+    return paragraphs
+
+
+def _build_windows_ocr_script(image_paths: list[Path]) -> str:
+    paths = ", ".join(_quote_powershell_string(str(path)) for path in image_paths)
+    return f"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$null = [Windows.Storage.StorageFile, Windows.Storage, ContentType=WindowsRuntime]
+$null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType=WindowsRuntime]
+$null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType=WindowsRuntime]
+function Await($AsyncTask, $ResultType) {{
+  $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {{ $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.IsGenericMethod }} | Select-Object -First 1).MakeGenericMethod($ResultType)
+  $netTask = $asTaskGeneric.Invoke($null, @($AsyncTask))
+  $netTask.Wait(-1) | Out-Null
+  $netTask.Result
+}}
+$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+if ($null -eq $engine) {{ throw 'No Windows OCR engine is available.' }}
+$paths = @({paths})
+foreach ($path in $paths) {{
+  $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($path)) ([Windows.Storage.StorageFile])
+  $stream = Await ($file.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+  $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+  $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+  $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
+  $result.Text
+  ''
+}}
+"""
+
+
+def _quote_powershell_string(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
 def fetch_video_metadata(video_id: str) -> dict[str, str]:
     source_url = f"https://www.youtube.com/watch?v={video_id}"
     metadata = {"title": "", "author": "", "source_url": source_url}
@@ -1330,6 +1456,47 @@ def process_article(url: str, output_root: str, translate: bool = False, api_key
         title=str(article.get("title") or ""),
         author=str(article.get("author") or ""),
         source_url=str(article.get("source_url") or url),
+        media_embed_url="",
+    )
+
+
+def process_pdf_upload(
+    pdf_bytes: bytes,
+    filename: str,
+    output_root: str,
+    translate: bool = False,
+    api_key: str | None = None,
+) -> dict:
+    clean_filename = Path(str(filename or "uploaded.pdf")).name or "uploaded.pdf"
+    paragraphs = extract_pdf_text(pdf_bytes)
+    pdf_id = "pdf_" + sha1(pdf_bytes).hexdigest()[:12]
+    snippets = [
+        TranscriptSnippet(text=text, start=float(index), duration=0)
+        for index, text in enumerate(paragraphs)
+    ]
+
+    if translate:
+        if not api_key:
+            return {"video_id": pdf_id, "ok": False, "error": "未设置 DEEPSEEK_API_KEY，无法翻译。"}
+
+        translations: list[str] = []
+        for start in range(0, len(snippets), BATCH_SIZE):
+            batch = [snippet.text for snippet in snippets[start : start + BATCH_SIZE]]
+            translations.extend(translate_batch(batch, api_key))
+            time.sleep(REQUEST_SLEEP_SECONDS)
+
+        for snippet, text_zh in zip(snippets, translations):
+            snippet.text_zh = text_zh
+
+    files = save_outputs(pdf_id, snippets, output_root)
+    return build_process_result(
+        pdf_id,
+        snippets,
+        files,
+        source_type="pdf",
+        title=clean_filename,
+        author="PDF",
+        source_url=clean_filename,
         media_embed_url="",
     )
 

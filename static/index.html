@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Subtitle Studio</title>
-    <link rel="stylesheet" href="/static/styles.css?v=9" />
+    <link rel="stylesheet" href="/static/styles.css?v=12" />
   </head>
   <body>
     <main class="app-shell">
@@ -20,7 +20,13 @@
         <form id="fetch-form" class="control-panel">
           <label class="field">
             <span>视频或文章链接</span>
-            <textarea id="url" rows="5" required placeholder="粘贴 YouTube 视频/频道/播放列表，或公开文章链接，例如 https://www.youtube.com/watch?v=..."></textarea>
+            <textarea id="url" rows="5" placeholder="粘贴 YouTube 视频/频道/播放列表，或公开文章链接，例如 https://www.youtube.com/watch?v=..."></textarea>
+          </label>
+
+          <label class="field pdf-upload">
+            <span>或者导入 PDF</span>
+            <input id="pdf-file" type="file" accept="application/pdf,.pdf" />
+            <small id="pdf-upload-hint" class="field-hint">支持文本 PDF 与较大扫描版 PDF，单文件最大 200 MB。扫描版 OCR 可能需要几分钟。</small>
           </label>
 
           <div class="inline-fields">
@@ -63,6 +69,6 @@
       </section>
     </main>
 
-    <script src="/static/app.js?v=9"></script>
+    <script src="/static/app.js?v=12"></script>
   </body>
 </html>

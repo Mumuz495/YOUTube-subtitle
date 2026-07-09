@@ -2,14 +2,20 @@ const form = document.querySelector("#fetch-form");
 const submitButton = document.querySelector("#submit");
 const immersiveButton = document.querySelector("#immersive-translate");
 const translateCheckbox = document.querySelector("#translate");
+const pdfFileInput = document.querySelector("#pdf-file");
 const statusText = document.querySelector("#status");
 const transcript = document.querySelector("#transcript");
 const warnings = document.querySelector("#warnings");
 const downloadLinks = document.querySelector("#download-links");
+const DEFAULT_PDF_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+let pdfMaxUploadBytes = DEFAULT_PDF_MAX_UPLOAD_BYTES;
+let pdfMaxUploadLabel = "200 MB";
 let vocabEntries = [];
 let ttsVoices = [];
 let currentAudio = null;
 let ttsRunId = 0;
+
+loadUploadConfig().catch(() => {});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -19,48 +25,118 @@ form.addEventListener("submit", async (event) => {
     translateCheckbox.checked = true;
   }
 
-  setLoading(true, isImmersive);
+  const url = document.querySelector("#url").value.trim();
+  const pdfFile = pdfFileInput?.files?.[0] || null;
+  if (!url && !pdfFile) {
+    statusText.innerHTML = '<span class="error">请粘贴链接，或选择一个 PDF 文件。</span>';
+    return;
+  }
+  if (pdfFile && !pdfFile.name.toLowerCase().endsWith(".pdf") && pdfFile.type !== "application/pdf") {
+    statusText.innerHTML = '<span class="error">请选择 PDF 文件。</span>';
+    return;
+  }
+  if (pdfFile && pdfFile.size > pdfMaxUploadBytes) {
+    const sizeMb = formatFileSize(pdfFile.size);
+    statusText.innerHTML = `<span class="error">PDF 文件太大：${escapeHtml(sizeMb)}。当前网页上传上限是 ${escapeHtml(pdfMaxUploadLabel)}。</span>`;
+    return;
+  }
+
+  setLoading(true, isImmersive, Boolean(pdfFile));
   renderWarnings([]);
   downloadLinks.innerHTML = "";
   transcript.className = `transcript empty${isImmersive ? " immersive" : ""}`;
-  transcript.innerHTML = isImmersive
-    ? "<p>正在连接 DeepSeek，生成双语沉浸预览...</p>"
-    : "<p>正在抓取内容，频道、播放列表和文章可能需要更久...</p>";
+  transcript.innerHTML = pdfFile
+    ? "<p>正在上传并读取 PDF…若为扫描版，系统将进行 OCR，可能需要几分钟，请耐心等待。</p>"
+    : isImmersive
+      ? "<p>正在连接 DeepSeek，生成双语沉浸预览...</p>"
+      : "<p>正在抓取内容，频道、播放列表和文章可能需要更久...</p>";
 
   const payload = {
-    url: document.querySelector("#url").value.trim(),
+    url,
     limit: document.querySelector("#limit").value,
     output: document.querySelector("#output").value.trim() || "output",
     translate: isImmersive || translateCheckbox.checked,
   };
 
   try {
-    const response = await fetch("/api/fetch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok || result.error) {
-      throw new Error(result.error || "抓取失败");
-    }
+    const result = pdfFile
+      ? await fetchPdfContent(pdfFile, payload, isImmersive)
+      : await fetchLinkedContent(payload);
     renderResult(result, isImmersive);
   } catch (error) {
     statusText.innerHTML = `<span class="error">${escapeHtml(error.message)}</span>`;
     transcript.className = "transcript empty";
-    transcript.innerHTML = "<p>可以检查链接、网络、依赖安装，或确认该视频是否有字幕、该文章是否公开可读。</p>";
+    transcript.innerHTML = "<p>可以检查链接、PDF 文本、网络、依赖安装，或确认该视频是否有字幕、该文章是否公开可读。</p>";
   } finally {
     setLoading(false);
   }
 });
 
-function setLoading(isLoading, isImmersive = false) {
+async function fetchLinkedContent(payload) {
+  const response = await fetch("/api/fetch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  if (!response.ok || result.error) {
+    throw new Error(result.error || "抓取失败");
+  }
+  return result;
+}
+
+async function loadUploadConfig() {
+  const response = await fetch("/api/config");
+  if (!response.ok) {
+    return;
+  }
+  const config = await response.json();
+  if (Number(config.pdf_max_upload_bytes) > 0) {
+    pdfMaxUploadBytes = Number(config.pdf_max_upload_bytes);
+  }
+  if (config.pdf_max_upload_label) {
+    pdfMaxUploadLabel = String(config.pdf_max_upload_label);
+  }
+  const hint = document.querySelector("#pdf-upload-hint");
+  if (hint) {
+    hint.textContent = `支持文本 PDF 与较大扫描版 PDF，单文件最大 ${pdfMaxUploadLabel}。扫描版 OCR 可能需要几分钟。`;
+  }
+}
+
+async function fetchPdfContent(file, payload) {
+  const formData = new FormData();
+  formData.append("pdf", file, file.name);
+  formData.append("filename", file.name);
+  formData.append("output", payload.output);
+  formData.append("translate", payload.translate ? "true" : "false");
+
+  const response = await fetch("/api/pdf-upload", {
+    method: "POST",
+    body: formData,
+  });
+  const result = await response.json();
+  if (!response.ok || result.error) {
+    throw new Error(result.error || "PDF 读取失败");
+  }
+  return result;
+}
+
+function formatFileSize(bytes) {
+  const mb = Number(bytes || 0) / 1024 / 1024;
+  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+}
+
+function setLoading(isLoading, isImmersive = false, isPdf = false) {
   submitButton.disabled = isLoading;
   immersiveButton.disabled = isLoading;
-  submitButton.textContent = isLoading ? "抓取中..." : "抓取内容";
+  submitButton.textContent = isLoading ? (isPdf ? "上传中..." : "抓取中...") : "抓取内容";
   immersiveButton.textContent = isLoading && isImmersive ? "翻译中..." : "沉浸式翻译";
   if (isLoading) {
-    statusText.textContent = isImmersive ? "正在调用 DeepSeek 生成双语预览。" : "正在处理。";
+    statusText.textContent = isPdf
+      ? "正在上传 PDF。扫描版将进行 OCR，可能需要几分钟。"
+      : isImmersive
+        ? "正在调用 DeepSeek 生成双语预览。"
+        : "正在处理。";
   }
 }
 
@@ -237,6 +313,9 @@ function renderSourceMeta(item) {
 }
 
 function renderSourceCount(item) {
+  if (item?.source_type === "pdf") {
+    return "PDF";
+  }
   return item?.source_type === "article" ? "文章" : "视频";
 }
 
